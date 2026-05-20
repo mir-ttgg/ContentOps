@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     bot_token: str = Field(..., alias="BOT_TOKEN")
     webapp_url: str = Field("", alias="WEBAPP_URL")
     superadmin_ids: list[int] = Field(default_factory=list, alias="SUPERADMIN_IDS")
+    promo_code: str = Field("Можноавтомат", alias="PROMO_CODE")
 
     database_url: str = Field(..., alias="DATABASE_URL")
     redis_url: str = Field("redis://localhost:6379/0", alias="REDIS_URL")
