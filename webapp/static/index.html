@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentOps</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>ContentOps</h1>
+    <nav id="tabs">
+      <button data-tab="dashboard" class="active">Обзор</button>
+      <button data-tab="create">Создать</button>
+      <button data-tab="moderation">Модерация</button>
+      <button data-tab="settings">Настройки</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-dashboard" class="tab active">
+      <div class="cards">
+        <div class="card"><h3 id="stat-channels">—</h3><span>Каналы</span></div>
+        <div class="card"><h3 id="stat-today">—</h3><span>Постов за 24ч</span></div>
+        <div class="card"><h3 id="stat-queue">—</h3><span>В очереди</span></div>
+        <div class="card"><h3 id="stat-pending">—</h3><span>На модерации</span></div>
+      </div>
+      <h2>Последние публикации</h2>
+      <div id="recent-list" class="list"></div>
+    </section>
+
+    <section id="tab-create" class="tab">
+      <label>Канал
+        <select id="create-channel"></select>
+      </label>
+      <label>Тема для AI (необязательно)
+        <input id="create-topic" type="text" placeholder="например, еженедельный дайджест" />
+      </label>
+      <div class="row">
+        <button id="btn-ai">Сгенерировать через AI</button>
+        <button id="btn-improve">Улучшить текущий текст</button>
+      </div>
+      <label>Текст
+        <textarea id="create-text" rows="10" placeholder="Поддерживается HTML-разметка"></textarea>
+      </label>
+      <label>URL медиа (необязательно)
+        <input id="create-media" type="text" placeholder="https://..." />
+      </label>
+      <label>Тип медиа
+        <select id="create-media-type">
+          <option value="none">Без медиа</option>
+          <option value="photo">Фото</option>
+          <option value="video">Видео</option>
+          <option value="document">Документ</option>
+        </select>
+      </label>
+      <label>Запланировать на (оставьте пустым, чтобы опубликовать сейчас)
+        <input id="create-schedule" type="datetime-local" />
+      </label>
+      <div class="row">
+        <button id="btn-publish" class="primary">Опубликовать</button>
+      </div>
+      <h2>Запланированные</h2>
+      <div id="scheduled-list" class="list"></div>
+    </section>
+
+    <section id="tab-moderation" class="tab">
+      <h2>Ожидают одобрения</h2>
+      <div id="moderation-queue" class="list"></div>
+      <h2>Журнал автоудалений</h2>
+      <div id="moderation-log" class="list"></div>
+    </section>
+
+    <section id="tab-settings" class="tab">
+      <label>Канал
+        <select id="settings-channel"></select>
+      </label>
+      <label>Системный промт (роль / тематика / тон для AI)
+        <textarea id="settings-prompt" rows="6"></textarea>
+      </label>
+      <div class="row toggles">
+        <label><input type="checkbox" id="set-approval"> Требовать одобрение</label>
+        <label><input type="checkbox" id="set-autopost"> Автопостинг</label>
+        <label><input type="checkbox" id="set-autodelete"> Автоудаление нежелательного контента</label>
+      </div>
+      <label>Стоп-слова (по одному в строке; поддерживаются регулярки)
+        <textarea id="set-stopwords" rows="6" placeholder="спам&#10;купи сейчас&#10;.*крипто.*"></textarea>
+      </label>
+      <label>Модель AI (переопределить по умолчанию)
+        <input id="set-model" type="text" placeholder="gpt-4o / claude-3-5-sonnet-latest / gemini-1.5-flash" />
+      </label>
+      <div class="row">
+        <button id="btn-save-settings" class="primary">Сохранить</button>
+      </div>
+
+      <h2>Слоты расписания</h2>
+      <div id="slots-list" class="list"></div>
+      <div class="row">
+        <input id="slot-time" type="time" />
+        <input id="slot-days" type="text" placeholder="дни 0-6 через запятую (пусто = ежедневно)" />
+        <button id="btn-add-slot">Добавить слот</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
