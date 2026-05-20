@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: contentops
+      POSTGRES_PASSWORD: contentops
+      POSTGRES_DB: contentops
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contentops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  migrate:
+    image: ${IMAGE:-username/contentops:latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    command: alembic upgrade head
+
+  bot:
+    image: ${IMAGE:-username/contentops:latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
