@@ -92,15 +92,15 @@
         <textarea id="settings-prompt" rows="6"></textarea>
       </label>
       <div class="row toggles">
-        <label><input type="checkbox" id="set-approval"> Требовать одобрение</label>
-        <label><input type="checkbox" id="set-autopost"> Автопостинг</label>
-        <label><input type="checkbox" id="set-autodelete"> Автоудаление нежелательного контента</label>
+        <label>Требовать одобрение постов<input type="checkbox" id="set-approval"></label>
+        <label>Автопостинг по расписанию<input type="checkbox" id="set-autopost"></label>
+        <label>Автоудаление нежелательного контента<input type="checkbox" id="set-autodelete"></label>
       </div>
       <label>Стоп-слова (по одному в строке; поддерживаются регулярки)
         <textarea id="set-stopwords" rows="6" placeholder="спам&#10;купи сейчас&#10;.*крипто.*"></textarea>
       </label>
       <label>Модель AI (переопределить по умолчанию)
-        <input id="set-model" type="text" placeholder="gpt-4o / claude-3-5-sonnet-latest / gemini-1.5-flash" />
+        <input id="set-model" type="text" placeholder="gemini-flash-latest / gpt-4o / claude-3-5-sonnet-latest" />
       </label>
       <div class="row">
         <button id="btn-save-settings" class="primary">Сохранить</button>
