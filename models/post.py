@@ -46,13 +46,28 @@ class Post(Base, TimestampMixin):
     media_url: Mapped[str | None] = mapped_column(String(1024))
     media_file_id: Mapped[str | None] = mapped_column(String(512))
     media_type: Mapped[MediaType] = mapped_column(
-        Enum(MediaType, name="media_type"), default=MediaType.NONE, nullable=False
+        Enum(
+            MediaType, name="media_type",
+            values_callable=lambda e: [m.value for m in e],
+            create_type=False,
+        ),
+        default=MediaType.NONE, nullable=False,
     )
     status: Mapped[PostStatus] = mapped_column(
-        Enum(PostStatus, name="post_status"), default=PostStatus.DRAFT, nullable=False, index=True
+        Enum(
+            PostStatus, name="post_status",
+            values_callable=lambda e: [m.value for m in e],
+            create_type=False,
+        ),
+        default=PostStatus.DRAFT, nullable=False, index=True,
     )
     source: Mapped[PostSource] = mapped_column(
-        Enum(PostSource, name="post_source"), default=PostSource.MANUAL, nullable=False
+        Enum(
+            PostSource, name="post_source",
+            values_callable=lambda e: [m.value for m in e],
+            create_type=False,
+        ),
+        default=PostSource.MANUAL, nullable=False,
     )
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

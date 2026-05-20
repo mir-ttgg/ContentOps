@@ -22,7 +22,12 @@ class ModerationLog(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     post_id: Mapped[int | None] = mapped_column(ForeignKey("posts.id", ondelete="SET NULL"), index=True)
     action: Mapped[ModerationAction] = mapped_column(
-        Enum(ModerationAction, name="moderation_action"), nullable=False
+        Enum(
+            ModerationAction, name="moderation_action",
+            values_callable=lambda e: [m.value for m in e],
+            create_type=False,
+        ),
+        nullable=False,
     )
     reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
     triggered_by: Mapped[str] = mapped_column(String(64), default="system", nullable=False)

@@ -20,5 +20,10 @@ class Admin(Base, TimestampMixin):
     tg_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
     username: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[AdminRole] = mapped_column(
-        Enum(AdminRole, name="admin_role"), default=AdminRole.EDITOR, nullable=False
+        Enum(
+            AdminRole, name="admin_role",
+            values_callable=lambda e: [m.value for m in e],
+            create_type=False,
+        ),
+        default=AdminRole.EDITOR, nullable=False,
     )
