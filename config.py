@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     redis_url: str = Field("redis://localhost:6379/0", alias="REDIS_URL")
 
     ai_provider: Literal["openai", "claude", "gemini"] = Field("gemini", alias="AI_PROVIDER")
-    ai_model: str = Field("gemini-1.5-flash", alias="AI_MODEL")
+    ai_model: str = Field("gemini-flash-latest", alias="AI_MODEL")
     openai_api_key: str = Field("", alias="OPENAI_API_KEY")
     anthropic_api_key: str = Field("", alias="ANTHROPIC_API_KEY")
     gemini_api_key: str = Field("", alias="GEMINI_API_KEY")

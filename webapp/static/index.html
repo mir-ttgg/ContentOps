@@ -42,8 +42,20 @@
         <button id="btn-improve">Улучшить текущий текст</button>
       </div>
       <label>Текст
-        <textarea id="create-text" rows="10" placeholder="Поддерживается HTML-разметка"></textarea>
+        <textarea id="create-text" rows="10" placeholder="Поддерживается Telegram HTML: <b>жирный</b>, <i>курсив</i>, <a href=&quot;https://...&quot;>ссылка</a>"></textarea>
       </label>
+      <div class="format-toolbar">
+        <button type="button" data-tag="b" title="Жирный"><b>B</b></button>
+        <button type="button" data-tag="i" title="Курсив"><i>I</i></button>
+        <button type="button" data-tag="u" title="Подчёркнутый"><u>U</u></button>
+        <button type="button" data-tag="s" title="Зачёркнутый"><s>S</s></button>
+        <button type="button" data-tag="code" title="Моноширинный"><code>code</code></button>
+        <button type="button" data-tag="a" title="Ссылка">link</button>
+      </div>
+      <details class="preview-box">
+        <summary>Предпросмотр</summary>
+        <div id="create-preview" class="tg-preview"></div>
+      </details>
       <label>URL медиа (необязательно)
         <input id="create-media" type="text" placeholder="https://..." />
       </label>

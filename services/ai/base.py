@@ -40,7 +40,19 @@ class AIProvider(ABC):
 
 GENERATION_SYSTEM = (
     "You are an expert content writer for a Telegram channel. Write engaging, "
-    "concise posts in the channel's voice. Output only the post text — no preamble."
+    "concise posts in the channel's voice. Output only the post text — no preamble.\n\n"
+    "FORMATTING — use Telegram HTML, never Markdown:\n"
+    "• Bold: <b>text</b>   (NEVER **text**)\n"
+    "• Italic: <i>text</i> (NEVER *text* or _text_)\n"
+    "• Underline: <u>text</u>\n"
+    "• Strikethrough: <s>text</s>\n"
+    "• Inline code: <code>text</code>\n"
+    "• Code block: <pre>text</pre>\n"
+    "• Link: <a href=\"https://example.com\">text</a>\n"
+    "• Line breaks: real newlines, not <br>.\n"
+    "• Do NOT wrap output in <html>/<body> or code fences.\n"
+    "• Telegram does NOT support headings (#), tables, or nested lists — use bold "
+    "for section titles and plain bullet lines (•, –, or numbers)."
 )
 
 MODERATION_SYSTEM = (

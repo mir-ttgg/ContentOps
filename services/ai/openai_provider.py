@@ -3,6 +3,7 @@ from __future__ import annotations
 from loguru import logger
 from openai import AsyncOpenAI
 
+from services.ai._format import normalize_post_html
 from services.ai._parse import parse_moderation_json
 from services.ai.base import (
     GENERATION_SYSTEM,
@@ -36,11 +37,11 @@ class OpenAIProvider(AIProvider):
 
     async def generate_post(self, topic: str, channel_context: str) -> str:
         prompt = f"Channel context:\n{channel_context}\n\nWrite a post about: {topic}"
-        return await self._chat(GENERATION_SYSTEM, prompt)
+        return normalize_post_html(await self._chat(GENERATION_SYSTEM, prompt))
 
     async def improve_post(self, text: str) -> str:
         prompt = f"Improve the following post — sharpen the hook, tighten phrasing, keep the meaning:\n\n{text}"
-        return await self._chat(GENERATION_SYSTEM, prompt)
+        return normalize_post_html(await self._chat(GENERATION_SYSTEM, prompt))
 
     async def check_content(self, text: str) -> ModerationResult:
         try:

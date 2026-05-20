@@ -179,6 +179,77 @@ async function loadTab(name) {
   }
 }
 
+// ---------- Editor toolbar + preview ----------
+const textArea = document.getElementById("create-text");
+const previewBox = document.getElementById("create-preview");
+
+const TG_ALLOWED = new Set(["b", "strong", "i", "em", "u", "ins", "s", "strike", "del", "code", "pre", "a", "br"]);
+
+function renderTelegramPreview(raw) {
+  if (!raw) { previewBox.innerHTML = ""; return; }
+  const doc = new DOMParser().parseFromString(`<root>${raw}</root>`, "text/html");
+  const root = doc.body.firstChild;
+  if (!root) { previewBox.textContent = raw; return; }
+
+  function sanitize(node) {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue);
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    const tag = node.tagName.toLowerCase();
+    if (!TG_ALLOWED.has(tag)) {
+      const span = document.createDocumentFragment();
+      node.childNodes.forEach((c) => {
+        const sanitized = sanitize(c);
+        if (sanitized) span.appendChild(sanitized);
+      });
+      return span;
+    }
+    const el = document.createElement(tag);
+    if (tag === "a") {
+      const href = node.getAttribute("href") || "#";
+      if (/^(https?:|tg:|mailto:)/i.test(href)) el.setAttribute("href", href);
+      el.setAttribute("rel", "noopener noreferrer");
+    }
+    node.childNodes.forEach((c) => {
+      const sanitized = sanitize(c);
+      if (sanitized) el.appendChild(sanitized);
+    });
+    return el;
+  }
+
+  previewBox.innerHTML = "";
+  root.childNodes.forEach((c) => {
+    const sanitized = sanitize(c);
+    if (sanitized) previewBox.appendChild(sanitized);
+  });
+}
+
+function wrapSelection(tag) {
+  const start = textArea.selectionStart;
+  const end = textArea.selectionEnd;
+  const value = textArea.value;
+  const selected = value.slice(start, end);
+  let opening = `<${tag}>`;
+  let closing = `</${tag}>`;
+  if (tag === "a") {
+    const url = prompt("URL ссылки:", "https://");
+    if (!url) return;
+    opening = `<a href="${url}">`;
+    closing = "</a>";
+  }
+  const body = selected || (tag === "a" ? "текст" : "");
+  const next = value.slice(0, start) + opening + body + closing + value.slice(end);
+  textArea.value = next;
+  const cursor = start + opening.length + body.length;
+  textArea.setSelectionRange(cursor, cursor);
+  textArea.focus();
+  renderTelegramPreview(textArea.value);
+}
+
+document.querySelectorAll(".format-toolbar button").forEach((btn) => {
+  btn.addEventListener("click", () => wrapSelection(btn.dataset.tag));
+});
+textArea.addEventListener("input", () => renderTelegramPreview(textArea.value));
+
 document.getElementById("btn-ai").addEventListener("click", async () => {
   const channelId = parseInt(document.getElementById("create-channel").value);
   const topic = document.getElementById("create-topic").value.trim();
@@ -192,6 +263,7 @@ document.getElementById("btn-ai").addEventListener("click", async () => {
       body: JSON.stringify({ channel_id: channelId, topic }),
     });
     document.getElementById("create-text").value = r.text;
+    renderTelegramPreview(r.text);
   } catch (e) {
     alert(e.message);
   }
@@ -207,6 +279,7 @@ document.getElementById("btn-improve").addEventListener("click", async () => {
       body: JSON.stringify({ channel_id: channelId, topic: "", improve_text: text }),
     });
     document.getElementById("create-text").value = r.text;
+    renderTelegramPreview(r.text);
   } catch (e) {
     alert(e.message);
   }
