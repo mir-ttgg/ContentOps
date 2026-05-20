@@ -11,8 +11,11 @@ import time
 from urllib.parse import parse_qsl
 
 from fastapi import Header, HTTPException, status
+from sqlalchemy import select
 
 from config import settings
+from models import Admin
+from models.db import SessionLocal
 
 
 def _secret_key() -> bytes:
@@ -42,10 +45,14 @@ def verify_init_data(init_data: str, max_age_seconds: int = 3600) -> dict:
     return {"user": user, "raw": pairs}
 
 
-def require_admin(
+async def require_admin(
     x_telegram_init_data: str = Header(default="", alias="X-Telegram-Init-Data"),
 ) -> int:
-    """FastAPI dependency: validates initData and returns the admin's tg_user_id."""
+    """FastAPI dependency: validates initData and returns the admin's tg_user_id.
+
+    Allowed users: superadmins from .env and anyone with a row in the `admins`
+    table (created when the user redeems a promo code via the bot).
+    """
     if not settings.bot_token:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Bot token not configured")
     data = verify_init_data(x_telegram_init_data)
@@ -53,9 +60,12 @@ def require_admin(
     user_id = user.get("id")
     if not user_id:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "No user in initData")
-    # superadmins always allowed; DB membership checked elsewhere if needed
-    if user_id not in settings.superadmin_ids:
-        # let the route decide whether to gate further; for now reject non-superadmins
-        # to keep the surface tight. Editors can be added later by checking the admins table.
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not an admin")
-    return user_id
+    if user_id in settings.superadmin_ids:
+        return user_id
+
+    async with SessionLocal() as session:
+        result = await session.execute(select(Admin).where(Admin.tg_user_id == user_id))
+        if result.scalar_one_or_none() is not None:
+            return user_id
+
+    raise HTTPException(status.HTTP_403_FORBIDDEN, "Not an admin")
