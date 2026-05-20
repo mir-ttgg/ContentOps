@@ -25,16 +25,40 @@ class ChannelManager:
 
     # ---------- channels CRUD ----------
 
-    async def list_channels(self, session: AsyncSession) -> Sequence[Channel]:
-        result = await session.execute(select(Channel).order_by(Channel.id))
+    async def list_channels(
+        self, session: AsyncSession, owner_tg_id: int
+    ) -> Sequence[Channel]:
+        result = await session.execute(
+            select(Channel)
+            .where(Channel.owner_tg_id == owner_tg_id)
+            .order_by(Channel.id)
+        )
         return result.scalars().all()
 
-    async def get_channel(self, session: AsyncSession, channel_id: int) -> Channel | None:
-        return await session.get(Channel, channel_id)
+    async def get_channel(
+        self,
+        session: AsyncSession,
+        channel_id: int,
+        owner_tg_id: int | None = None,
+    ) -> Channel | None:
+        ch = await session.get(Channel, channel_id)
+        if ch is None:
+            return None
+        if owner_tg_id is not None and ch.owner_tg_id != owner_tg_id:
+            return None
+        return ch
 
-    async def get_by_tg_id(self, session: AsyncSession, tg_channel_id: int) -> Channel | None:
+    async def get_by_tg_id(
+        self,
+        session: AsyncSession,
+        tg_channel_id: int,
+        owner_tg_id: int,
+    ) -> Channel | None:
         result = await session.execute(
-            select(Channel).where(Channel.tg_channel_id == tg_channel_id)
+            select(Channel).where(
+                Channel.owner_tg_id == owner_tg_id,
+                Channel.tg_channel_id == tg_channel_id,
+            )
         )
         return result.scalar_one_or_none()
 
@@ -42,8 +66,9 @@ class ChannelManager:
         self,
         session: AsyncSession,
         tg_channel_id: int,
+        owner_tg_id: int,
     ) -> Channel:
-        existing = await self.get_by_tg_id(session, tg_channel_id)
+        existing = await self.get_by_tg_id(session, tg_channel_id, owner_tg_id)
         if existing:
             return existing
 
@@ -63,6 +88,7 @@ class ChannelManager:
             raise ChannelError("Бот должен быть добавлен в канал как администратор.")
 
         channel = Channel(
+            owner_tg_id=owner_tg_id,
             tg_channel_id=tg_channel_id,
             name=chat.title or str(tg_channel_id),
             username=chat.username,
@@ -79,8 +105,13 @@ class ChannelManager:
         logger.info("Added channel {} ({})", channel.name, channel.tg_channel_id)
         return channel
 
-    async def remove_channel(self, session: AsyncSession, channel_id: int) -> bool:
-        ch = await self.get_channel(session, channel_id)
+    async def remove_channel(
+        self,
+        session: AsyncSession,
+        channel_id: int,
+        owner_tg_id: int | None = None,
+    ) -> bool:
+        ch = await self.get_channel(session, channel_id, owner_tg_id)
         if not ch:
             return False
         await session.delete(ch)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, String, Text, JSON
+from sqlalchemy import BigInteger, String, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, TimestampMixin
@@ -14,9 +14,13 @@ if TYPE_CHECKING:
 
 class Channel(Base, TimestampMixin):
     __tablename__ = "channels"
+    __table_args__ = (
+        UniqueConstraint("owner_tg_id", "tg_channel_id", name="uq_channels_owner_tg"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tg_channel_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    owner_tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    tg_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     username: Mapped[str | None] = mapped_column(String(255))
     system_prompt: Mapped[str] = mapped_column(Text, default="", nullable=False)

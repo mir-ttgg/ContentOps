@@ -19,6 +19,9 @@ async def cb_approve(call: CallbackQuery, session: AsyncSession):
     if not post:
         await call.answer("Пост не найден.", show_alert=True)
         return
+    if post.channel and post.channel.owner_tg_id != call.from_user.id:
+        await call.answer("Это пост другого пользователя.", show_alert=True)
+        return
     if post.status not in (PostStatus.PENDING_APPROVAL, PostStatus.DRAFT):
         await call.answer(f"Уже в статусе {post.status.value}.", show_alert=True)
         return
@@ -43,9 +46,12 @@ async def cb_approve(call: CallbackQuery, session: AsyncSession):
 @router.callback_query(F.data.startswith("mod:reject:"))
 async def cb_reject(call: CallbackQuery, session: AsyncSession):
     post_id = int(call.data.split(":")[2])
-    post = await session.get(Post, post_id)
+    post = await session.get(Post, post_id, options=[selectinload(Post.channel)])
     if not post:
         await call.answer("Пост не найден.", show_alert=True)
+        return
+    if post.channel and post.channel.owner_tg_id != call.from_user.id:
+        await call.answer("Это пост другого пользователя.", show_alert=True)
         return
     post.status = PostStatus.REJECTED
     session.add(ModerationLog(

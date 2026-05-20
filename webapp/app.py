@@ -110,24 +110,36 @@ async def get_session() -> AsyncSession:
 
 # -------------------- Channels --------------------
 
+async def _owned_channel(
+    session: AsyncSession,
+    channel_id: int,
+    owner_tg_id: int,
+    *,
+    with_slots: bool = False,
+) -> Channel:
+    opts = [selectinload(Channel.schedule_slots)] if with_slots else []
+    ch = await session.get(Channel, channel_id, options=opts)
+    if not ch or ch.owner_tg_id != owner_tg_id:
+        raise HTTPException(404, "Channel not found")
+    return ch
+
+
 @app.get("/api/channels", response_model=list[ChannelOut])
 async def list_channels(
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    chs = await get_channel_manager().list_channels(session)
+    chs = await get_channel_manager().list_channels(session, owner_tg_id=owner)
     return [ChannelOut.from_orm(c) for c in chs]
 
 
 @app.get("/api/channels/{channel_id}", response_model=ChannelOut)
 async def get_channel(
     channel_id: int,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    ch = await session.get(Channel, channel_id)
-    if not ch:
-        raise HTTPException(404, "Channel not found")
+    ch = await _owned_channel(session, channel_id, owner)
     return ChannelOut.from_orm(ch)
 
 
@@ -135,12 +147,10 @@ async def get_channel(
 async def update_channel(
     channel_id: int,
     payload: ChannelSettingsIn,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    ch = await session.get(Channel, channel_id, options=[selectinload(Channel.schedule_slots)])
-    if not ch:
-        raise HTTPException(404, "Channel not found")
+    ch = await _owned_channel(session, channel_id, owner, with_slots=True)
     if payload.system_prompt is not None:
         ch.system_prompt = payload.system_prompt
     s = dict(ch.settings_json or {})
@@ -163,10 +173,16 @@ async def list_posts(
     channel_id: int | None = None,
     status_filter: PostStatus | None = None,
     limit: int = 50,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    q = select(Post).order_by(Post.created_at.desc()).limit(min(limit, 200))
+    q = (
+        select(Post)
+        .join(Channel, Channel.id == Post.channel_id)
+        .where(Channel.owner_tg_id == owner)
+        .order_by(Post.created_at.desc())
+        .limit(min(limit, 200))
+    )
     if channel_id is not None:
         q = q.where(Post.channel_id == channel_id)
     if status_filter is not None:
@@ -175,15 +191,20 @@ async def list_posts(
     return [PostOut.from_orm(p) for p in result.scalars().all()]
 
 
+async def _owned_post(session: AsyncSession, post_id: int, owner: int) -> Post:
+    post = await session.get(Post, post_id, options=[selectinload(Post.channel)])
+    if not post or not post.channel or post.channel.owner_tg_id != owner:
+        raise HTTPException(404, "Post not found")
+    return post
+
+
 @app.post("/api/posts", response_model=PostOut)
 async def create_post(
     payload: PostIn,
     actor: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    channel = await session.get(Channel, payload.channel_id)
-    if not channel:
-        raise HTTPException(404, "Channel not found")
+    channel = await _owned_channel(session, payload.channel_id, actor)
 
     post = Post(
         channel_id=channel.id,
@@ -234,9 +255,7 @@ async def delete_post(
     actor: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    post = await session.get(Post, post_id, options=[selectinload(Post.channel)])
-    if not post:
-        raise HTTPException(404, "Post not found")
+    post = await _owned_post(session, post_id, actor)
 
     if post.status == PostStatus.PUBLISHED:
         await get_channel_manager().delete_published(session, post)
@@ -257,9 +276,7 @@ async def approve_post(
     actor: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    post = await session.get(Post, post_id, options=[selectinload(Post.channel)])
-    if not post:
-        raise HTTPException(404, "Post not found")
+    post = await _owned_post(session, post_id, actor)
     if post.status not in (PostStatus.PENDING_APPROVAL, PostStatus.DRAFT):
         raise HTTPException(400, f"Cannot approve from {post.status}")
     await get_channel_manager().publish_post(session, post)
@@ -276,9 +293,7 @@ async def reject_post(
     actor: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    post = await session.get(Post, post_id)
-    if not post:
-        raise HTTPException(404, "Post not found")
+    post = await _owned_post(session, post_id, actor)
     post.status = PostStatus.REJECTED
     session.add(ModerationLog(
         post_id=post.id, action=ModerationAction.REJECTED,
@@ -292,12 +307,10 @@ async def reject_post(
 @app.post("/api/ai/generate", response_model=AIGenerateOut)
 async def ai_generate(
     payload: AIGenerateIn,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    channel = await session.get(Channel, payload.channel_id)
-    if not channel:
-        raise HTTPException(404, "Channel not found")
+    channel = await _owned_channel(session, payload.channel_id, owner)
     try:
         ai = get_ai_provider()
     except RuntimeError as e:
@@ -314,9 +327,10 @@ async def ai_generate(
 @app.get("/api/channels/{channel_id}/slots", response_model=list[ScheduleSlotOut])
 async def list_slots(
     channel_id: int,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
+    await _owned_channel(session, channel_id, owner)
     result = await session.execute(
         select(ScheduleSlot).where(ScheduleSlot.channel_id == channel_id).order_by(ScheduleSlot.time_of_day)
     )
@@ -334,12 +348,10 @@ async def list_slots(
 async def add_slot(
     channel_id: int,
     payload: ScheduleSlotIn,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    channel = await session.get(Channel, channel_id, options=[selectinload(Channel.schedule_slots)])
-    if not channel:
-        raise HTTPException(404, "Channel not found")
+    channel = await _owned_channel(session, channel_id, owner, with_slots=True)
     slot = ScheduleSlot(
         channel_id=channel.id,
         time_of_day=payload.time_of_day,
@@ -359,18 +371,18 @@ async def add_slot(
 @app.delete("/api/slots/{slot_id}")
 async def delete_slot(
     slot_id: int,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     slot = await session.get(ScheduleSlot, slot_id)
     if not slot:
         raise HTTPException(404, "Slot not found")
     channel_id = slot.channel_id
+    channel = await _owned_channel(session, channel_id, owner, with_slots=True)
     await session.delete(slot)
     await session.flush()
-    channel = await session.get(Channel, channel_id, options=[selectinload(Channel.schedule_slots)])
-    if channel:
-        get_scheduler().sync_channel_schedule(channel, channel.schedule_slots)
+    await session.refresh(channel, attribute_names=["schedule_slots"])
+    get_scheduler().sync_channel_schedule(channel, channel.schedule_slots)
     return {"ok": True}
 
 
@@ -379,11 +391,16 @@ async def delete_slot(
 @app.get("/api/moderation/log", response_model=list[ModerationLogOut])
 async def moderation_log(
     limit: int = 100,
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
-        select(ModerationLog).order_by(ModerationLog.created_at.desc()).limit(min(limit, 500))
+        select(ModerationLog)
+        .join(Post, Post.id == ModerationLog.post_id)
+        .join(Channel, Channel.id == Post.channel_id)
+        .where(Channel.owner_tg_id == owner)
+        .order_by(ModerationLog.created_at.desc())
+        .limit(min(limit, 500))
     )
     return [
         ModerationLogOut(
@@ -396,22 +413,40 @@ async def moderation_log(
 
 @app.get("/api/dashboard", response_model=DashboardOut)
 async def dashboard(
-    _: int = Depends(require_admin),
+    owner: int = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     today = datetime.now(timezone.utc) - timedelta(hours=24)
-    channels_cnt = (await session.execute(select(func.count(Channel.id)))).scalar_one()
+    owned_posts = (
+        select(Post.id)
+        .join(Channel, Channel.id == Post.channel_id)
+        .where(Channel.owner_tg_id == owner)
+        .subquery()
+    )
+    channels_cnt = (await session.execute(
+        select(func.count(Channel.id)).where(Channel.owner_tg_id == owner)
+    )).scalar_one()
     posts_today = (await session.execute(
-        select(func.count(Post.id)).where(Post.published_at >= today)
+        select(func.count(Post.id))
+        .where(Post.id.in_(select(owned_posts.c.id)))
+        .where(Post.published_at >= today)
     )).scalar_one()
     queue = (await session.execute(
-        select(func.count(Post.id)).where(Post.scheduled_at.is_not(None), Post.status == PostStatus.APPROVED)
+        select(func.count(Post.id))
+        .where(Post.id.in_(select(owned_posts.c.id)))
+        .where(Post.scheduled_at.is_not(None), Post.status == PostStatus.APPROVED)
     )).scalar_one()
     pending = (await session.execute(
-        select(func.count(Post.id)).where(Post.status == PostStatus.PENDING_APPROVAL)
+        select(func.count(Post.id))
+        .where(Post.id.in_(select(owned_posts.c.id)))
+        .where(Post.status == PostStatus.PENDING_APPROVAL)
     )).scalar_one()
     recent = (await session.execute(
-        select(Post).order_by(Post.created_at.desc()).limit(10)
+        select(Post)
+        .join(Channel, Channel.id == Post.channel_id)
+        .where(Channel.owner_tg_id == owner)
+        .order_by(Post.created_at.desc())
+        .limit(10)
     )).scalars().all()
     return DashboardOut(
         channels=channels_cnt,
@@ -435,11 +470,10 @@ async def _notify_admins_for_approval(post: Post, channel: Channel) -> None:
         f"{post.text[:1000]}"
     )
     kb = moderation_kb(post.id)
-    for admin_id in settings.superadmin_ids:
-        try:
-            await bot.send_message(admin_id, text, reply_markup=kb)
-        except Exception as e:
-            logger.warning("Notify admin {} failed: {}", admin_id, e)
+    try:
+        await bot.send_message(channel.owner_tg_id, text, reply_markup=kb)
+    except Exception as e:
+        logger.warning("Notify owner {} failed: {}", channel.owner_tg_id, e)
 
 
 # -------------------- static --------------------
