@@ -75,7 +75,12 @@ class ChannelManager:
         try:
             chat = await self.bot.get_chat(tg_channel_id)
         except Exception as e:
-            raise ChannelError(f"Не удалось получить доступ к чату {tg_channel_id}: {e}") from e
+            raise ChannelError(
+                f"Не удалось получить доступ к чату {tg_channel_id}. "
+                "Скорее всего бот не добавлен в канал как администратор — "
+                "добавьте его в администраторы канала и попробуйте снова.\n"
+                f"Подробности: {e}"
+            ) from e
 
         # ensure bot is admin with publish rights
         me = await self.bot.get_me()
