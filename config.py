@@ -13,7 +13,6 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
-
     bot_token: str = Field(..., alias="BOT_TOKEN")
     webapp_url: str = Field("", alias="WEBAPP_URL")
     superadmin_ids: list[int] = Field(default_factory=list, alias="SUPERADMIN_IDS")
@@ -26,7 +25,6 @@ class Settings(BaseSettings):
     openai_api_key: str = Field("", alias="OPENAI_API_KEY")
     anthropic_api_key: str = Field("", alias="ANTHROPIC_API_KEY")
     gemini_api_key: str = Field("", alias="GEMINI_API_KEY")
-
     log_level: str = Field("INFO", alias="LOG_LEVEL")
     tz: str = Field("UTC", alias="TZ")
     webapp_host: str = Field("0.0.0.0", alias="WEBAPP_HOST")
